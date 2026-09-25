@@ -1,12 +1,12 @@
 services:
   # ==================================================
-  # 1. Python FastAPI AI Service (FAISS + RAG Pipeline)
+  # 1. Python FastAPI AI Engine (FAISS + RAG Pipeline)
   # ==================================================
   - type: web
     name: documind-ai-service
-    runtime: docker
-    dockerfilePath: Dockerfile
+    env: docker
     rootDir: ai-service
+    dockerfilePath: Dockerfile
     region: oregon
     plan: free
     envVars:
@@ -28,9 +28,9 @@ services:
   # ==================================================
   - type: web
     name: documind-springboot-gateway
-    runtime: docker
-    dockerfilePath: Dockerfile
+    env: docker
     rootDir: springboot-service
+    dockerfilePath: Dockerfile
     region: oregon
     plan: free
     envVars:
@@ -45,13 +45,13 @@ services:
         generateValue: true
 
   # ==================================================
-  # 3. React TypeScript Frontend (Nginx Web Server)
+  # 3. React TypeScript Frontend (Nginx Server)
   # ==================================================
   - type: web
     name: documind-frontend
-    runtime: docker
-    dockerfilePath: Dockerfile
+    env: docker
     rootDir: frontend
+    dockerfilePath: Dockerfile
     region: oregon
     plan: free
     envVars:
