@@ -1,4 +1,7 @@
-from langchain.prompts import PromptTemplate
+try:
+    from langchain_core.prompts import PromptTemplate
+except ImportError:
+    from langchain.prompts import PromptTemplate
 
 QA_SYSTEM_PROMPT = """You are DocuMind AI, an expert enterprise document intelligence assistant.
 Your goal is to answer the user's question accurately based strictly on the provided context retrieved from indexed documents.

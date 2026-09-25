@@ -25,14 +25,15 @@ class RAGPipeline:
         self.llm = self._init_llm()
 
     def _init_llm(self) -> Optional[ChatOpenAI]:
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "mock":
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith(("sk-", "gsk_")):
             try:
                 logger.info(f"Initializing ChatOpenAI model: {settings.LLM_MODEL}")
                 return ChatOpenAI(
                     model=settings.LLM_MODEL,
                     openai_api_key=settings.OPENAI_API_KEY,
                     openai_api_base=settings.OPENAI_API_BASE,
-                    temperature=0.2
+                    temperature=0.2,
+                    request_timeout=10
                 )
             except Exception as e:
                 logger.warning(f"Failed to initialize ChatOpenAI ({e}). Operating in Local Grounded Fallback Mode.")

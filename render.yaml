@@ -1,0 +1,59 @@
+services:
+  # ==================================================
+  # 1. Python FastAPI AI Service (FAISS + RAG Pipeline)
+  # ==================================================
+  - type: web
+    name: documind-ai-service
+    runtime: docker
+    dockerfilePath: Dockerfile
+    rootDir: ai-service
+    region: oregon
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_API_BASE
+        value: https://api.openai.com/v1
+      - key: LLM_MODEL
+        value: gpt-4o-mini
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: STORAGE_DIR
+        value: /app/data
+
+  # ==================================================
+  # 2. Java 17 Spring Boot Gateway Service
+  # ==================================================
+  - type: web
+    name: documind-springboot-gateway
+    runtime: docker
+    dockerfilePath: Dockerfile
+    rootDir: springboot-service
+    region: oregon
+    plan: free
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: AI_SERVICE_URL
+        fromService:
+          type: web
+          name: documind-ai-service
+          property: url
+      - key: JWT_SECRET
+        generateValue: true
+
+  # ==================================================
+  # 3. React TypeScript Frontend (Nginx Web Server)
+  # ==================================================
+  - type: web
+    name: documind-frontend
+    runtime: docker
+    dockerfilePath: Dockerfile
+    rootDir: frontend
+    region: oregon
+    plan: free
+    envVars:
+      - key: PORT
+        value: "80"

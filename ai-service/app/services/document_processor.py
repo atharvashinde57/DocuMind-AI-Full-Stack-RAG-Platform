@@ -97,14 +97,17 @@ class DocumentProcessor:
         Processes an uploaded file.
         Returns: (doc_id, raw_page_docs, chunked_docs)
         """
-        doc_id = str(uuid.uuid4())
         ext = os.path.splitext(filename)[1].lower()
+        if ext not in ['.pdf', '.docx', '.doc', '.txt', '.md']:
+            raise ValueError(f"Unsupported file format '{ext}'. Allowed formats: PDF, DOCX, TXT, MD.")
+
+        doc_id = str(uuid.uuid4())
 
         if ext == ".pdf":
             page_docs = self.parse_pdf(file_path, filename, doc_id)
         elif ext in [".docx", ".doc"]:
             page_docs = self.parse_docx(file_path, filename, doc_id)
-        elif ext == ".txt":
+        elif ext in [".txt", ".md"]:
             page_docs = self.parse_txt(file_path, filename, doc_id)
         else:
             raise ValueError(f"Unsupported file format: {ext}")

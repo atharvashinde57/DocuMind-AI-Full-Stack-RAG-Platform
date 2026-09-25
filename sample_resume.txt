@@ -1,0 +1,16 @@
+Atharva Shinde
+Senior AI & Full-Stack Engineer
+
+SUMMARY:
+Passionate Software Engineer with 5+ years of experience building scalable microservices, vector search pipelines, and modern web applications using Python, FastAPI, Java Spring Boot, React, and PostgreSQL.
+
+SKILLS:
+- Languages: Python, Java, TypeScript, SQL
+- Frameworks: FastAPI, Spring Boot 3, React 18, LangChain
+- AI/ML: FAISS, SentenceTransformers, OpenAI API, RAG
+- DevOps: Docker, Kubernetes, CI/CD, Nginx
+
+EXPERIENCE:
+Senior Full Stack Engineer | AI Platforms (2023 - Present)
+- Designed and implemented DocuMind AI RAG engine capable of processing PDF and DOCX files.
+- Reduced similarity search latency by 45% using FAISS vector indexing.
