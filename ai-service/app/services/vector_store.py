@@ -2,13 +2,19 @@ import os
 import pickle
 import logging
 from typing import List, Tuple, Dict, Any, Optional
-from langchain_community.vectorstores import FAISS
-from langchain_community.embeddings import HuggingFaceEmbeddings
+
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    from langchain_community.embeddings import HuggingFaceEmbeddings
+
 from langchain_openai import OpenAIEmbeddings
+
 try:
     from langchain_core.documents import Document
 except ImportError:
     from langchain.schema import Document
+
 from app.config.settings import settings
 from app.schemas.rag import DocumentInfo
 
@@ -16,16 +22,22 @@ logger = logging.getLogger("documind.vector_store")
 
 class VectorStoreManager:
     def __init__(self):
-        self.embeddings = self._init_embeddings()
+        self._embeddings = None
         self.vector_store: Optional[FAISS] = None
         self.documents_metadata: Dict[str, DocumentInfo] = {}
         self.index_path = os.path.join(settings.FAISS_DIR, "index.faiss")
         self.pickle_path = os.path.join(settings.FAISS_DIR, "store.pkl")
         self.meta_path = os.path.join(settings.FAISS_DIR, "metadata.pkl")
-        self._load_vector_store()
+        self._store_loaded = False
+
+    @property
+    def embeddings(self):
+        if self._embeddings is None:
+            self._embeddings = self._init_embeddings()
+        return self._embeddings
 
     def _init_embeddings(self):
-        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY != "mock":
+        if settings.OPENAI_API_KEY and settings.OPENAI_API_KEY.startswith(("sk-", "gsk_")):
             try:
                 logger.info("Initializing OpenAI Embeddings...")
                 return OpenAIEmbeddings(
@@ -36,12 +48,21 @@ class VectorStoreManager:
                 logger.warning(f"Failed to load OpenAI Embeddings ({e}). Falling back to local SentenceTransformers.")
         
         logger.info(f"Using local HuggingFace embeddings ({settings.EMBEDDING_MODEL})...")
-        return HuggingFaceEmbeddings(model_name=settings.EMBEDDING_MODEL)
+        return HuggingFaceEmbeddings(
+            model_name=settings.EMBEDDING_MODEL,
+            model_kwargs={'device': 'cpu'}
+        )
+
+    def _ensure_loaded(self):
+        if not self._store_loaded:
+            self._load_vector_store()
+            self._store_loaded = True
 
     def _load_vector_store(self):
         try:
             if os.path.exists(self.index_path) and os.path.exists(self.pickle_path):
                 logger.info("Loading existing FAISS index from disk...")
+                from langchain_community.vectorstores import FAISS
                 self.vector_store = FAISS.load_local(
                     folder_path=settings.FAISS_DIR,
                     embeddings=self.embeddings,
@@ -69,6 +90,9 @@ class VectorStoreManager:
         if not chunked_docs:
             return
 
+        self._ensure_loaded()
+        from langchain_community.vectorstores import FAISS
+
         if self.vector_store is None:
             self.vector_store = FAISS.from_documents(chunked_docs, self.embeddings)
         else:
@@ -84,10 +108,10 @@ class VectorStoreManager:
         k: int = settings.TOP_K,
         doc_ids: Optional[List[str]] = None
     ) -> List[Tuple[Document, float]]:
+        self._ensure_loaded()
         if self.vector_store is None:
             return []
 
-        # Perform similarity search with score (FAISS returns distance score where lower is closer, L2 distance or cosine)
         results = self.vector_store.similarity_search_with_score(query, k=k*2 if doc_ids else k)
         
         filtered_results = []
@@ -95,9 +119,7 @@ class VectorStoreManager:
             if doc_ids and doc.metadata.get("doc_id") not in doc_ids:
                 continue
             
-            # Normalize FAISS distance score to similarity confidence score [0.0, 1.0]
-            # Convert FAISS L2/Cosine distance to intuitive 0..1 scale
-            similarity = max(0.0, min(1.0, round(1.0 - (score / 2.0 if score <= 2.0 else 1.0 / (1.0 + score)), 4)))
+            similarity = max(0.0, min(1.0, round(1.0 - (float(score) / 2.0 if score <= 2.0 else 1.0 / (1.0 + float(score))), 4)))
             filtered_results.append((doc, similarity))
 
             if len(filtered_results) >= k:
@@ -106,20 +128,21 @@ class VectorStoreManager:
         return filtered_results
 
     def get_all_documents(self) -> List[DocumentInfo]:
+        self._ensure_loaded()
         return list(self.documents_metadata.values())
 
     def get_document(self, doc_id: str) -> Optional[DocumentInfo]:
+        self._ensure_loaded()
         return self.documents_metadata.get(doc_id)
 
     def delete_document(self, doc_id: str) -> bool:
+        self._ensure_loaded()
         if doc_id not in self.documents_metadata:
             return False
 
         del self.documents_metadata[doc_id]
         
-        # Rebuild FAISS index from remaining documents if any
         if self.vector_store:
-            # Gather all non-deleted doc chunks
             remaining_docs = []
             docstore = self.vector_store.docstore
             for doc_uuid, doc in docstore._dict.items():
@@ -127,6 +150,7 @@ class VectorStoreManager:
                     remaining_docs.append(doc)
 
             if remaining_docs:
+                from langchain_community.vectorstores import FAISS
                 self.vector_store = FAISS.from_documents(remaining_docs, self.embeddings)
             else:
                 self.vector_store = None
@@ -138,6 +162,7 @@ class VectorStoreManager:
         return True
 
     def get_total_chunks_count(self) -> int:
+        self._ensure_loaded()
         if not self.vector_store:
             return 0
         return len(self.vector_store.docstore._dict)
