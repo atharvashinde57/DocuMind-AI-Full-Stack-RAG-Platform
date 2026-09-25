@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database for users, documents metadata, and chat history
+  postgres:
+    image: postgres:15-alpine
+    container_name: documind-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: documind_db
+      POSTGRES_USER: documind_user
+      POSTGRES_PASSWORD: documind_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U documind_user -d documind_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Python FastAPI AI Engine (FAISS + LangChain + RAG)
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: documind-ai-service
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_API_BASE=${OPENAI_API_BASE:-https://api.openai.com/v1}
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+      - STORAGE_DIR=/app/data
+    volumes:
+      - ai_storage_data:/app/data
+
+  # 3. Java Spring Boot API Gateway & Integration Layer
+  springboot-service:
+    build:
+      context: ./springboot-service
+      dockerfile: Dockerfile
+    container_name: documind-springboot-gateway
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/documind_db
+      - SPRING_DATASOURCE_USERNAME=documind_user
+      - SPRING_DATASOURCE_PASSWORD=documind_password
+      - SPRING_DATASOURCE_DRIVER=org.postgresql.Driver
+      - AI_SERVICE_URL=http://ai-service:8000
+      - JWT_SECRET=9a4f2c8d7e6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+
+  # 4. React TypeScript Frontend (Nginx Production Web Server)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: documind-frontend
+    restart: always
+    ports:
+      - "3000:80"
+    depends_on:
+      - springboot-service
+
+volumes:
+  postgres_data:
+  ai_storage_data:

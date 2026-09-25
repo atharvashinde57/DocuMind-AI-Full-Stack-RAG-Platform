@@ -1,0 +1,33 @@
+# Environment & Secrets
+.env
+*.env.local
+
+# Node / Frontend
+node_modules/
+dist/
+.vite/
+
+# Python / AI Service
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.env/
+data/
+*.faiss
+*.pkl
+
+# Java / Spring Boot
+target/
+.mvn/
+*.jar
+*.class
+.project
+.classpath
+.settings/
+
+# IDE & System
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
